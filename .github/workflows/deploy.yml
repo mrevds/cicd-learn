@@ -77,3 +77,4 @@ jobs:
             # Проверяем что контейнер запустился
             sleep 5
             docker ps | grep learncicd
+
