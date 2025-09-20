@@ -57,24 +57,51 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            # Останавливаем и удаляем старый контейнер
-            docker stop learncicd || true
-            docker rm learncicd || true
+            # Переходим в рабочую директорию
+            cd /opt/cicd-learn || mkdir -p /opt/cicd-learn && cd /opt/cicd-learn
             
-            # Очищаем старые образы
-            docker image prune -f
+            # Клонируем или обновляем репозиторий
+            if [ -d ".git" ]; then
+              git pull origin main
+            else
+              git clone https://github.com/${{ github.repository }} .
+            fi
             
-            # Загружаем новый образ
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/learncicd:latest
+            # Останавливаем старые контейнеры
+            docker-compose -f docker-compose.prod.yml down || true
             
-            # Запускаем новый контейнер
-            docker run -d \
-              --name learncicd \
-              --restart unless-stopped \
-              -p 8080:8080 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/learncicd:latest
+            # Очищаем старые образы приложения (кроме postgres)
+            docker images ${{ secrets.DOCKERHUB_USERNAME }}/learncicd -q | xargs -r docker rmi -f
             
-            # Проверяем что контейнер запустился
-            sleep 5
-            docker ps | grep learncicd
+            # Создаем .env файл для продакшена
+            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" > .env
+            
+            # Загружаем свежий образ из DockerHub
+            docker-compose -f docker-compose.prod.yml pull app
+            
+            # Запускаем контейнеры
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            # Ждем запуска PostgreSQL
+            sleep 15
+            
+            # Создаем базу данных если её нет
+            POSTGRES_CONTAINER=$(docker-compose -f docker-compose.prod.yml ps -q postgres)
+            docker exec -i $POSTGRES_CONTAINER psql -U postgres -c "SELECT 1 FROM pg_database WHERE datname = 'cicd_learn';" | grep -q 1 || \
+            docker exec -i $POSTGRES_CONTAINER psql -U postgres -c "CREATE DATABASE cicd_learn;"
+            
+            # Перезапускаем приложение после создания БД
+            docker-compose -f docker-compose.prod.yml restart app
+            
+            # Ждем запуска приложения
+            sleep 10
+            
+            # Проверяем статус контейнеров
+            docker-compose -f docker-compose.prod.yml ps
+            
+            # Тестируем API
+            curl -f http://localhost:8080/ping && echo " ✅ API работает!" || echo " ❌ API не отвечает"
+            
+            # Проверяем что можем получить книги
+            curl -f http://localhost:8080/books && echo " ✅ База данных работает!" || echo " ❌ Проблема с БД"
 

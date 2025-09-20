@@ -1,7 +1,8 @@
 .git
 .github
 .idea
-*.md
-.dockerignore
-Dockerfile
+README.md
+docker-compose*.yml
+app
+.env*
 

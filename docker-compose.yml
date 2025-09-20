@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: cicd_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cicd_learn
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cicd_network
+
+  app:
+    build: .
+    container_name: cicd_app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - cicd_network
+
+volumes:
+  postgres_data:
+
+networks:
+  cicd_network:
+    driver: bridge
