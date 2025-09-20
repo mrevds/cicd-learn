@@ -58,7 +58,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             # Переходим в рабочую директорию
-            cd /opt/cicd-learn || mkdir -p /opt/cicd-learn && cd /opt/cicd-learn
+            cd /root/cicd-learn || mkdir -p /root/cicd-learn && cd /root/cicd-learn
             
             # Клонируем или обновляем репозиторий
             if [ -d ".git" ]; then
